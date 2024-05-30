@@ -86,10 +86,10 @@ function startDetect()
     players = mc.getOnlinePlayers()
     for i = 1, #players do
         mPlayer = players[i]
-        if mConfig.strictMode and mPlayer.xuid ~= mConfig.superOperator then
+        if mConfig.strictMode and mPlayer.uuid ~= mConfig.superOperator then
             handlePlayer(mPlayer, mPlayer:getInventory():getAllItems())
         else
-            if not tableContainsValue(mConfig.whitelist, mPlayer.xuid) and not mPlayer:isOP() then
+            if not tableContainsValue(mConfig.whitelist, mPlayer.uuid) and not mPlayer:isOP() then
                 handlePlayer(mPlayer, mPlayer:getInventory():getAllItems())
             end
         end
@@ -105,11 +105,11 @@ end)
 mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
     --[[
     if mConfig.strictMode then
-        if player.xuid ~= mConfig.superOperator then
+        if player.uuid ~= mConfig.superOperator then
             handlePlayer(player, newItem.type)
         end
     else
-        if not tableContainsValue(mConfig.whitelist, player.xuid) and not player:isOP() then
+        if not tableContainsValue(mConfig.whitelist, player.uuid) and not player:isOP() then
             handlePlayer(player, newItem.type)
         end
     end
