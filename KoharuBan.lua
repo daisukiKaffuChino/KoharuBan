@@ -25,10 +25,10 @@ local function punish(player, itemType, count) -- 惩罚
     end
 end
 
-local function outputlog(playerName, itemId, count)
-    time = os.date("%Y-%m-%d %H:%M:%S")
-    log = string.format("[%s] %s %s * %d\n", time, playerName, itemId, count)
-    return log
+local function outputLogFile(content)
+    file = io.open("plugins/KoharuBan/log.txt", "a")
+    file:write(content)
+    file:close()
 end
 
 local function tableContainsValue(t, value, ext)
@@ -43,67 +43,42 @@ local function tableContainsValue(t, value, ext)
     return false
 end
 
---[[
 function handlePlayer(player, itemType)
     if itemType == nil then
         return
     end
     if tableContainsValue(mConfig.bannedItems, itemType, "minecraft:") then
-        count = player:clearItem(itemType, 64)
-        colorLog("blue", itemType.." xxxxx "..count)
-        punish(player, itemType, count)
-        if not mConfig.silenceMode then
-            mc.broadcast(string.format(
-                "§l§9[KoharuBan] §c玩家 %s 持有非法物品，多次违规将被踢出游戏！", player.realName))
-        end
-        file = io.open("plugins/KoharuBan/log.txt", "a")
-        file:write(outputlog(player.realName, itemType, count))
-        file:close()
-    end
-end
---]]
+        delay = setTimeout(function()
+            count = player:clearItem(itemType, 64)
+            if count == 0 then
+                return
+            end
+            log(count)
+            punish(player, itemType, count)
+            outputLogFile(string.format("[%s] %s %s * %d\n", os.date("%Y-%m-%d %H:%M:%S"), player.realName, itemType,
+                count))
 
-function handlePlayer(player, items)
-    for k, v in pairs(items) do
-        if tableContainsValue(mConfig.bannedItems, v.type, "minecraft:") then
-            count = player:clearItem(v.type, 64)
-            punish(player, v.type, count)
+        end, 200)
 
+        if delay then
             if not mConfig.silenceMode then
                 mc.broadcast(string.format(
                     "§l§9[KoharuBan] §c玩家 %s 持有非法物品，多次违规将被踢出游戏！",
                     player.realName))
             end
-
-            file = io.open("plugins/KoharuBan/log.txt", "a")
-            file:write(outputlog(player.realName, v.type, count))
-            file:close()
-        end
-    end
-end
-
-function startDetect()
-    players = mc.getOnlinePlayers()
-    for i = 1, #players do
-        mPlayer = players[i]
-        if mConfig.strictMode and mPlayer.uuid ~= mConfig.superOperator then
-            handlePlayer(mPlayer, mPlayer:getInventory():getAllItems())
         else
-            if not tableContainsValue(mConfig.whitelist, mPlayer.uuid) and not mPlayer:isOP() then
-                handlePlayer(mPlayer, mPlayer:getInventory():getAllItems())
-            end
+            outputLogFile(string.format("[ERROR] [%s] %s %s", os.date("%Y-%m-%d %H:%M:%S"), player.realName, itemType))
         end
+
     end
 end
 
 mc.listen("onServerStarted", function()
     colorLog("yellow", "[KoharuBan-Lua] 启动!")
-    -- mConfig.logTable(mConfig.bannedItems)
-    setInterval(startDetect, 200)
 end)
 
 mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
-    --[[
+
     if mConfig.strictMode then
         if player.uuid ~= mConfig.superOperator then
             handlePlayer(player, newItem.type)
@@ -113,6 +88,5 @@ mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
             handlePlayer(player, newItem.type)
         end
     end
-    --]]
 
 end)
