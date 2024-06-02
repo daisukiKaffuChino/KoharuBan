@@ -4,7 +4,7 @@
     "type": "lse-lua",
     "description": "禁止玩家持有指定的物品。",
     "author": "daisukiKaffuChino",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "dependencies": [
         {
             "name": "legacy-script-engine-lua"
