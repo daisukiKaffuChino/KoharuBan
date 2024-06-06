@@ -7,18 +7,30 @@ function mod.loadConfig(file)
     return _config
 end
 
-local function dump(o)
-    t = {}
-    _t = {}
-    _n = {}
-    space, deep = string.rep(' ', 2), 0
-    function _ToString(o, _k)
+function mod.fileToTable(f)
+    local file, err = io.open(scriptDir .. f, "r")
+    if file then
+        local str = file:read("*a")
+        file:close()
+        return load("return " .. str)()
+    else
+        logger.error("无法打开文件: " .. err)
+        return
+    end
+end
+
+function mod.dump(o)
+    local t = {}
+    local _t = {}
+    local _n = {}
+    local space, deep = string.rep(' ', 2), 0
+    local function _ToString(o, _k)
         if type(o) == ('number') then
             table.insert(t, o)
         elseif type(o) == ('string') then
             table.insert(t, string.format('%q', o))
         elseif type(o) == ('table') then
-            mt = getmetatable(o)
+            local mt = getmetatable(o)
             if mt and mt.__tostring then
                 table.insert(t, tostring(o))
             else
@@ -73,7 +85,7 @@ function mod.logTable(t, level)
     else
         logger.setConsole(true, 4)
     end
-    logger.info(dump(t))
+    logger.info(mod.dump(t))
 end
 
 local function clone(tb)

@@ -1,4 +1,4 @@
-_G.scriptDir = "plugins/KoharuBan/"
+_G.scriptDir = "./plugins/KoharuBan/"
 --[[
    Copyright 2024. KoharuBan Project. ALL RIGHTS RESERVED
                 Github@daisukiKaffuChino
@@ -80,8 +80,44 @@ function handlePlayer(player, itemType)
     end
 end
 
+function banPlayerCmd(_cmd, _ori, out, res)
+    local action = res.action
+    if action == "ban" then
+        out:success("test")
+    elseif action == "reload" then
+    elseif action == "dumptable" then
+        local t = manager.fileToTable("config/player.table")
+        if t then
+            logger.info(manager.dump(t))
+        end
+    end
+end
+
 mc.listen("onServerStarted", function()
     colorLog("yellow", "[KoharuBan-Lua] 启动!")
+
+    local cmd = mc.newCommand("koharu", "禁制品なのはダメ！死刑！", PermType.Console)
+    cmd:setEnum("koharu-cmd", {"reload", "dumptable"}) -- 重载配置 遍历输出table
+    cmd:setEnum("koharu-ban", {"ban"}) -- 命令仅针对在线玩家，要ban不在线的玩家的话就手动改文件去吧
+    cmd:setEnum("koharu-unban", {"unban"})
+    cmd:setEnum("koharu-query-target", {"name", "uuid"})
+
+    cmd:mandatory("action", ParamType.Enum, "koharu-cmd", 1)
+    cmd:mandatory("action", ParamType.Enum, "koharu-ban", 1)
+    cmd:mandatory("action", ParamType.Enum, "koharu-unban", 1)
+    cmd:mandatory("player", ParamType.String)
+    cmd:mandatory("banplayer", ParamType.Player)
+    cmd:mandatory("unbanplayer", ParamType.Enum, "koharu-query-target", 1)
+    cmd:optional("note", ParamType.String)
+
+    cmd:overload({"koharu-cmd"})
+    cmd:overload({"koharu-ban", "banplayer", "note"})
+    cmd:overload({"koharu-unban", "unbanplayer", "player"})
+
+    cmd:setCallback(banPlayerCmd)
+
+    cmd:setup()
+
 end)
 
 mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
