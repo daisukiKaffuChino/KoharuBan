@@ -2,7 +2,7 @@
 -- 是否启用严格模式。该模式下无视op豁免，仅允许一位op玩家绕过监管，使op滥权难度加大。建议保持此项开启。
 strictMode = true
 
--- 仅在启用严格模式时有效。唯一的uuid标识。
+-- 仅在启用严格模式时有效。唯一的realName(真实名称)标识，这不会因为改名而变动。
 superOperator = ""
 
 -- 是否启用惩罚
@@ -11,7 +11,7 @@ isPunish = true
 -- 静默模式，不显示广播。不影响输出日志
 silenceMode = false
 
--- 普通玩家豁免，严格模式下无效。该表值为uuid
+-- 普通玩家豁免，严格模式下无效。该表值为realName
 whitelist = {}
 
 -- 禁止的物品id

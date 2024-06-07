@@ -15,7 +15,7 @@ function mod.fileToTable(f)
         return load("return " .. str)()
     else
         logger.error("无法打开文件: " .. err)
-        return
+        return {}
     end
 end
 

@@ -11,6 +11,9 @@ manager = require(scriptDir .. "module/manager")()
 -- 基本配置
 baseConfig = manager.loadConfig("baseconfig")
 
+-- 封神榜
+bannedPlayerT = manager.fileToTable("config/player.table")
+
 local function punish(player, itemType, count) -- 惩罚
     if baseConfig.isPunish then
         price = baseConfig.bannedItemsPrice[itemType:match("minecraft:(.+)")]
@@ -83,12 +86,47 @@ end
 function banPlayerCmd(_cmd, _ori, out, res)
     local action = res.action
     if action == "ban" then
-        out:success("test")
+        if baseConfig.strictMode and baseConfig.extendedMode then
+            local num = 0
+            -- log(manager.dump(p))
+            if #res.banplayer < 1 then
+                out:error("没有找到指定的玩家，可能已经离线。")
+                return
+            end
+
+            for i = 1, #res.banplayer do
+                local p = (res.banplayer)[i]
+                num = num + 1
+                if p.realName == baseConfig.superOperator then
+                    out:error("不能封禁插件管理员")
+                else
+                    local _t = {
+                        name = p.realName,
+                        uuid = p.uuid,
+                        ip = p:getDevice().ip,
+                        clientId = p:getDevice().clientId,
+                        banStart = os.time(),
+                        banEnd = os.time() + res.minute * 60,
+                        note = res.note or ""
+                    }
+                    out:success(manager.dump(_t))
+                    out:success(string.format("踢出了 %d 位玩家", num))
+                    p:kick(baseConfig.banMsg)
+                end
+            end
+
+        else
+            out:error("执行命令时未满足必要条件")
+        end
     elseif action == "reload" then
+        bannedPlayerT = manager.fileToTable("config/player.table")
+        out:success("BannedPlayer已重载")
     elseif action == "dumptable" then
         local t = manager.fileToTable("config/player.table")
-        if t then
-            logger.info(manager.dump(t))
+        if #t > 0 then
+            out:success(manager.dump(t))
+        else
+            out:error("文件内容为空")
         end
     end
 end
@@ -108,10 +146,11 @@ mc.listen("onServerStarted", function()
     cmd:mandatory("player", ParamType.String)
     cmd:mandatory("banplayer", ParamType.Player)
     cmd:mandatory("unbanplayer", ParamType.Enum, "koharu-query-target", 1)
+    cmd:mandatory("minute", ParamType.Int) -- 封禁时长，单位为分钟。输入 0 则永封。
     cmd:optional("note", ParamType.String)
 
     cmd:overload({"koharu-cmd"})
-    cmd:overload({"koharu-ban", "banplayer", "note"})
+    cmd:overload({"koharu-ban", "banplayer", "minute", "note"})
     cmd:overload({"koharu-unban", "unbanplayer", "player"})
 
     cmd:setCallback(banPlayerCmd)
@@ -123,11 +162,11 @@ end)
 mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
 
     if baseConfig.strictMode then
-        if player.uuid ~= baseConfig.superOperator then
+        if player.realName ~= baseConfig.superOperator then
             handlePlayer(player, newItem.type)
         end
     else
-        if not tableContainsValue(baseConfig.whitelist, player.uuid) and not player:isOP() then
+        if not tableContainsValue(baseConfig.whitelist, player.realName) and not player:isOP() then
             handlePlayer(player, newItem.type)
         end
     end
