@@ -14,6 +14,9 @@ baseConfig = manager.loadConfig("baseconfig")
 -- 封神榜
 bannedPlayerT = manager.fileToTable("config/player.table")
 
+-- 临时记录某一玩家违规次数
+local tempRecord = {}
+
 local function punish(player, itemType, count) -- 惩罚
     if baseConfig.isPunish then
         price = baseConfig.bannedItemsPrice[itemType:match("minecraft:(.+)")]
@@ -76,11 +79,55 @@ function handlePlayer(player, itemType)
                     "§l§9[KoharuBan] §c玩家 %s 持有非法物品，多次违规将被踢出游戏！",
                     player.realName))
             end
+
+            if baseConfig.strictMode and baseConfig.extendedMode then
+                local uuid = player.uuid
+                tempRecord[uuid] = (tempRecord[uuid] or 0) + 1
+                logger.error("xxxxx  " .. tempRecord[uuid])
+                if tempRecord[uuid] >= 2 then -- 第二次违规就采取措施
+                    tempRecord[uuid] = 0
+                    writeBan(player, 72 * 60, "自动封禁", "func")
+                end
+            end
+
         else
             outputLogFile(string.format("[ERROR] [%s] %s %s", os.date("%H:%M:%S"), player.realName, itemType), true)
         end
 
     end
+end
+
+function writeBan(p, minute, note, mode, out)
+    local function outp(s)
+        if mode == "cmd" then
+            out:success(s)
+        elseif mode == "func" then
+            log(s)
+        end
+    end
+    local timestamp, timestampEnd = os.time(), nil
+    if minute == 0 then
+        timestampEnd = 3408152399 -- 封到2077年
+    else
+        timestampEnd = timestamp + minute * 60
+    end
+    local _t = {
+        name = p.realName,
+        uuid = p.uuid,
+        ip = p:getDevice().ip,
+        clientId = p:getDevice().clientId,
+        banStart = timestamp,
+        banEnd = timestampEnd,
+        note = note or ""
+    }
+    outp(manager.dump(_t))
+    outp(string.format("封禁了 %d 位玩家", num or 1))
+    p:kick(baseConfig.banMsg ..
+               string.format("\n从 %s 到 %s", os.date("%Y.%m.%d %H:%M:%S", timestamp),
+            os.date("%Y.%m.%d %H:%M:%S", timestampEnd)))
+    -- 准备写文件
+    table.insert(bannedPlayerT, _t)
+    manager.tableToFile("config/player.table", bannedPlayerT)
 end
 
 function banPlayerCmd(_cmd, _ori, out, res)
@@ -106,29 +153,7 @@ function banPlayerCmd(_cmd, _ori, out, res)
                 if p.realName == baseConfig.superOperator then
                     out:error("不能封禁插件管理员")
                 else
-                    local timestamp, timestampEnd = os.time(), nil
-                    if res.minute == 0 then
-                        timestampEnd = 3408152399 -- 封到2077年
-                    else
-                        timestampEnd = timestamp + res.minute * 60
-                    end
-                    local _t = {
-                        name = p.realName,
-                        uuid = p.uuid,
-                        ip = p:getDevice().ip,
-                        clientId = p:getDevice().clientId,
-                        banStart = timestamp,
-                        banEnd = timestampEnd,
-                        note = res.note or ""
-                    }
-                    out:success(manager.dump(_t))
-                    out:success(string.format("封禁了 %d 位玩家", num))
-                    p:kick(baseConfig.banMsg ..
-                               string.format("\n从 %s 到 %s", os.date("%Y.%m.%d %H:%M:%S", timestamp),
-                            os.date("%Y.%m.%d %H:%M:%S", timestampEnd)))
-                    -- 准备写文件
-                    table.insert(bannedPlayerT, _t)
-                    manager.tableToFile("config/player.table", bannedPlayerT)
+                    writeBan(p, res.minute, res.note, "cmd", out)
                 end
             end
 
@@ -161,7 +186,9 @@ end
 
 mc.listen("onServerStarted", function()
     colorLog("yellow", "[KoharuBan-Lua] 启动!")
-
+    colorLog("yellow", "[KoharuBan-Lua] 注意，你当前加载了一个测试版本。如果你不知道这代表什么，请切换到正式版本。")
+    
+    -- 注册控制台命令
     local cmd = mc.newCommand("koharu", "禁制品なのはダメ！死刑！", PermType.Console)
     cmd:setEnum("koharu-cmd", {"reload", "dumptable"}) -- 重载配置 遍历输出table
     cmd:setEnum("koharu-ban", {"ban"}) -- 命令仅针对在线玩家，要ban不在线的玩家的话就手动改文件去吧
@@ -173,7 +200,7 @@ mc.listen("onServerStarted", function()
     cmd:mandatory("playername", ParamType.String)
     cmd:mandatory("banplayer", ParamType.Player)
     cmd:mandatory("minute", ParamType.Int) -- 封禁时长，单位为分钟。输入 0 则永封。
-    cmd:optional("note", ParamType.String)
+    cmd:optional("note", ParamType.String) -- 可选 封禁备注
 
     cmd:overload({"koharu-cmd"})
     cmd:overload({"koharu-ban", "banplayer", "minute", "note"})
@@ -183,6 +210,36 @@ mc.listen("onServerStarted", function()
 
     cmd:setup()
 
+    -- 导出函数，允许其它插件调用
+    ll.exports(function()
+        return bannedPlayerT
+    end, "Koharu", "getBannedPlayers")
+
+    ll.exports(function(player, minute, note)
+        writeBan(player, minute, note, "func")
+        bannedPlayerT = manager.fileToTable("config/player.table")
+    end, "Koharu", "ban")
+
+    -- TODO 导出更多方法
+
+end)
+
+mc.listen("onPreJoin", function(p)
+    local dv = p:getDevice()
+    for k, v in pairs(bannedPlayerT) do
+        if p.uuid == v.uuid or dv.ip == v.ip or dv.clientId == v.clientId then
+            if os.time() <= v.banEnd then
+                p:kick(baseConfig.banMsg ..
+                           string.format("\n从 %s 到 %s", os.date("%Y.%m.%d %H:%M:%S", v.banStart),
+                        os.date("%Y.%m.%d %H:%M:%S", v.banEnd)))
+                logger.warn("拦截登录：" .. p.realName)
+                return false
+            else
+                logger.info("存在于封禁列表但已刑满出狱的玩家：" .. p.realName)
+                return true
+            end
+        end
+    end
 end)
 
 mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)

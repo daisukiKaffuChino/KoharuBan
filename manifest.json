@@ -2,9 +2,9 @@
     "entry": "KoharuBan.lua",
     "name": "KoharuBan",
     "type": "lse-lua",
-    "description": "禁止玩家持有指定的物品。",
+    "description": "简洁易用且开源的 LSE 插件。封禁任何违规物品和玩家，并提供丰富的客制化选项。",
     "author": "daisukiKaffuChino",
-    "version": "0.0.2",
+    "version": "0.3.0",
     "dependencies": [
         {
             "name": "legacy-script-engine-lua"
