@@ -97,26 +97,54 @@ function banPlayerCmd(_cmd, _ori, out, res)
             for i = 1, #res.banplayer do
                 local p = (res.banplayer)[i]
                 num = num + 1
+                for k, v in pairs(bannedPlayerT) do
+                    if v.uuid == p.uuid then
+                        out:error("TA已经在封禁表单里了")
+                        return
+                    end
+                end
                 if p.realName == baseConfig.superOperator then
                     out:error("不能封禁插件管理员")
                 else
+                    local timestamp, timestampEnd = os.time(), nil
+                    if res.minute == 0 then
+                        timestampEnd = 3408152399 -- 封到2077年
+                    else
+                        timestampEnd = timestamp + res.minute * 60
+                    end
                     local _t = {
                         name = p.realName,
                         uuid = p.uuid,
                         ip = p:getDevice().ip,
                         clientId = p:getDevice().clientId,
-                        banStart = os.time(),
-                        banEnd = os.time() + res.minute * 60,
+                        banStart = timestamp,
+                        banEnd = timestampEnd,
                         note = res.note or ""
                     }
                     out:success(manager.dump(_t))
-                    out:success(string.format("踢出了 %d 位玩家", num))
-                    p:kick(baseConfig.banMsg)
+                    out:success(string.format("封禁了 %d 位玩家", num))
+                    p:kick(baseConfig.banMsg ..
+                               string.format("\n从 %s 到 %s", os.date("%Y.%m.%d %H:%M:%S", timestamp),
+                            os.date("%Y.%m.%d %H:%M:%S", timestampEnd)))
+                    -- 准备写文件
+                    table.insert(bannedPlayerT, _t)
+                    manager.tableToFile("config/player.table", bannedPlayerT)
                 end
             end
 
         else
             out:error("执行命令时未满足必要条件")
+        end
+    elseif action == "unban" then
+        if manager.removeTableData(bannedPlayerT, function(t)
+            if res.playername == t.name then
+                out:success("移除了：" .. res.playername)
+                return true
+            end
+        end) then
+            manager.tableToFile("config/player.table", bannedPlayerT)
+        else
+            out:success("执行了删除命令，但没有找到删除对象")
         end
     elseif action == "reload" then
         bannedPlayerT = manager.fileToTable("config/player.table")
@@ -138,20 +166,18 @@ mc.listen("onServerStarted", function()
     cmd:setEnum("koharu-cmd", {"reload", "dumptable"}) -- 重载配置 遍历输出table
     cmd:setEnum("koharu-ban", {"ban"}) -- 命令仅针对在线玩家，要ban不在线的玩家的话就手动改文件去吧
     cmd:setEnum("koharu-unban", {"unban"})
-    cmd:setEnum("koharu-query-target", {"name", "uuid"})
 
     cmd:mandatory("action", ParamType.Enum, "koharu-cmd", 1)
     cmd:mandatory("action", ParamType.Enum, "koharu-ban", 1)
     cmd:mandatory("action", ParamType.Enum, "koharu-unban", 1)
-    cmd:mandatory("player", ParamType.String)
+    cmd:mandatory("playername", ParamType.String)
     cmd:mandatory("banplayer", ParamType.Player)
-    cmd:mandatory("unbanplayer", ParamType.Enum, "koharu-query-target", 1)
     cmd:mandatory("minute", ParamType.Int) -- 封禁时长，单位为分钟。输入 0 则永封。
     cmd:optional("note", ParamType.String)
 
     cmd:overload({"koharu-cmd"})
     cmd:overload({"koharu-ban", "banplayer", "minute", "note"})
-    cmd:overload({"koharu-unban", "unbanplayer", "player"})
+    cmd:overload({"koharu-unban", "playername"})
 
     cmd:setCallback(banPlayerCmd)
 

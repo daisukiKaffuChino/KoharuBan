@@ -19,6 +19,29 @@ function mod.fileToTable(f)
     end
 end
 
+function mod.tableToFile(f, t)
+    local file, err = io.open(scriptDir .. f, "w")
+    if not file then
+        logger.error("打开文件时出错：" .. err)
+        return
+    end
+    file:write(mod.dump(t))
+    file:close()
+end
+
+-- 删除表中符合conditionFunc的数据
+function mod.removeTableData(tb, conditionFunc)
+    if tb ~= nil and next(tb) ~= nil then
+        -- todo
+        for i = #tb, 1, -1 do
+            if conditionFunc(tb[i]) then
+                table.remove(tb, i)
+                return true
+            end
+        end
+    end
+end
+
 function mod.dump(o)
     local t = {}
     local _t = {}
