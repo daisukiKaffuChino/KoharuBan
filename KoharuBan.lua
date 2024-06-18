@@ -1,8 +1,8 @@
 _G.scriptDir = "./plugins/KoharuBan/"
 --[[
-   Copyright 2024. KoharuBan Project. ALL RIGHTS RESERVED
+             KoharuBan  Copyright (C) 2024
                 Github@daisukiKaffuChino
-                  Apache-2.0 Licensed
+                  GPL v3.0 Licensed
 --]]
 
 -- 配置读写模块
