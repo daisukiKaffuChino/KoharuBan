@@ -83,7 +83,7 @@ function handlePlayer(player, itemType)
             if baseConfig.strictMode and baseConfig.extendedMode then
                 local uuid = player.uuid
                 tempRecord[uuid] = (tempRecord[uuid] or 0) + 1
-                logger.error("xxxxx  " .. tempRecord[uuid])
+                -- logger.error("xxxxx  " .. tempRecord[uuid])
                 if tempRecord[uuid] >= 2 then -- 第二次违规就采取措施
                     tempRecord[uuid] = 0
                     writeBan(player, 72 * 60, "自动封禁", "func")
@@ -186,8 +186,9 @@ end
 
 mc.listen("onServerStarted", function()
     colorLog("yellow", "[KoharuBan-Lua] 启动!")
-    colorLog("yellow", "[KoharuBan-Lua] 注意，你当前加载了一个测试版本。如果你不知道这代表什么，请切换到正式版本。")
-    
+    colorLog("yellow",
+        "[KoharuBan-Lua] 注意，你当前加载了一个测试版本。如果你不知道这代表什么，请切换到正式版本。")
+
     -- 注册控制台命令
     local cmd = mc.newCommand("koharu", "禁制品なのはダメ！死刑！", PermType.Console)
     cmd:setEnum("koharu-cmd", {"reload", "dumptable"}) -- 重载配置 遍历输出table
@@ -220,7 +221,20 @@ mc.listen("onServerStarted", function()
         bannedPlayerT = manager.fileToTable("config/player.table")
     end, "Koharu", "ban")
 
-    -- TODO 导出更多方法
+    ll.exports(function(playername)
+        if manager.removeTableData(bannedPlayerT, function(t)
+            if playername == t.name then
+                logger.info("移除了：" .. playername)
+                return true
+            end
+        end) then
+            manager.tableToFile("config/player.table", bannedPlayerT)
+        else
+            logger.error("执行了删除命令，但没有找到删除对象")
+        end
+    end, "Koharu", "unban")
+
+    -- 只是看着没啥问题，没有经过测试！
 
 end)
 
@@ -255,3 +269,14 @@ mc.listen("onInventoryChange", function(player, slotNum, oldItem, newItem)
     end
 
 end)
+
+-- 由于基岩版的进一步封闭和随之而来LL3的归档，KoharuBan-Lua将不再开发适用于基岩版的新版本。
+-- 迁移封禁名单中的一些有效数据到KoharuBan-Java，更方便地迁移到Java-Paper服务端。
+-- 得益于优秀的设计，KoharuBan-Lua使用类似于properties文件的配置项，以及使用Lua-Table存储结构性数据。
+-- 而这些优势将不能延续到Java版插件中，作为替代方案统一使用JSON存储所有数据。
+-- 该方法将输出两个文件转换为JSON后的字符串内容，要使用请手动修改代码，取消注释并增加调用方式。
+--[[function convertToPaper()
+    local JSON = require(scriptDir .. "module/json")
+    local baseConfigJ, bannedPlayerJ = JSON.encode(baseConfig, bannedPlayerJ)
+    return baseConfigJ, bannedPlayerJ
+end]]
